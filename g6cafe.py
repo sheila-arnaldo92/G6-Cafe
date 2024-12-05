@@ -1,124 +1,129 @@
 import datetime
 import os
 import tkinter as tk
-
-
 from tkinter import *
 from tkinter import ttk, messagebox
-
 
 import mysql.connector
 from PIL import Image, ImageTk
 
+import decimal
 
-image_folder = r".\Photos"
+image_folder = r"Photos"
 
-
-import mysql.connector
-from mysql.connector import Error
-
-#from pympler import muppy
-#all_objects=muppy.get_objects()  # this causes pydev debugger exit with code -1073741819 (0xC0000005)
-
-
-
-def save_menu_to_db(menu):
-   """Save the menu data to the MySQL database."""
-   global cursor, connection
-   try:
-       # Connect to the database
-       connection = mysql.connector.connect(
-           host='127.0.0.1',
-           user='devuser',
-           password='MySql.Admin',
-           database='g6Cafe'
-           #,auth_plugin='mysql_native_password'
-       )
+# Database Configuration
+DB_HOST = "127.0.0.1"
+DB_USER = "devuser"
+DB_PASSWORD = "MySql.Admin"
+DB_NAME = "g6cafe"
 
 
-       cursor = connection.cursor()
+# Create a connection to the database
+def connect_db():
+    return mysql.connector.connect(
+        host=DB_HOST,
+        user=DB_USER,
+        password=DB_PASSWORD,
+        database=DB_NAME
+    )
 
+#Load menu
+menu = {}
+connection = connect_db()
+cursor = connection.cursor()
 
-       # SQL to insert data into the menu table
-       insert_query = """
-       INSERT INTO menu (name, category, price, image_path)
-       VALUES (%s, %s, %s, %s)
-       """
+# generate the list of menu
+cursor.execute("SELECT DISTINCT category FROM menu")
+categoryRows = cursor.fetchall()
 
+for categoryRow in categoryRows:
+    cat = categoryRow
+    catSTR = str(categoryRow[0])
+    menu[catSTR] = []
 
-       # Iterate through the menu dictionary and insert each item
-       for category, items in menu.items():
-           for item in items:
-               cursor.execute(insert_query, (item['name'], category, item['price'], item['image']))
+    cursor.execute("SELECT name, price, image_path FROM menu WHERE category = %s", tuple(categoryRow))
+    # Fetch all rows
+    rows = cursor.fetchall()
 
+    # Print the results
+    for row in rows:
+        name, price, image_path = row
+        if len(menu[catSTR]) == 0:
+            menu[catSTR] = [{"name": str(name), "price": decimal.Decimal(price), "image": str(image_path)}]
+        else:
+            menu[catSTR].append({"name": str(name), "price": decimal.Decimal(price), "image": str(image_path)})
 
-       # Commit the transaction
-       connection.commit()
-       print(f"Menu data successfully saved to the database. Total items: {cursor.rowcount}")
-
-
-   except Error as e:
-       print(f"Error: {e}")
-
-
-   finally:
-       # Close the database connection
-       if connection.is_connected():
-           cursor.close()
-           connection.close()
-           print("Database connection closed.")
-
-
-
-
-# Menu items with prices and image paths
-menu = {
-   "Espresso": [
-       {"name": "Americano", "price": 150.00, "image": "americano.jpeg"},
-       {"name": "Cappuccino", "price": 150.00, "image": "cappucino.png"},
-       {"name": "Macchiato", "price": 175.00, "image": "macchiato.png"},
-       {"name": "Latte", "price": 175.00, "image": "latte.png"},
-       {"name": "Double Espresso", "price": 125.00, "image": "double espresso.png"},
-       {"name": "Mocha", "price": 180.00, "image": "mocha.png"},
-       {"name": "White Mocha", "price": 150.00, "image": "white mocha.png"},
-   ],
-   "Tea": [
-       {"name": "Earl Grey", "price": 120.00, "image": "earl grey.png"},
-       {"name": "English Breakfast", "price": 110.00, "image": "english breakfast.png"},
-       {"name": "Green Tea", "price": 110.00, "image": "green tea.png"},
-       {"name": "Jasmine Tea", "price": 110.00, "image": "jasmine tea.png"},
-       {"name": "Black Tea", "price": 125.00, "image": "black tea.png"},
-       {"name": "Red Tea", "price": 110.00, "image": "red tea.png"}
-   ],
-   "Ice Blended": [
-       {"name": "Caramel", "price": 125.00, "image": "caramel.png"},
-       {"name": "Coffee Jelly", "price": 130.00, "image": "coffee jelly.png"},
-       {"name": "Cookies and Cream", "price": 150.00, "image": "cookies and cream.png"},
-       {"name": "Hazelnut Mocha", "price": 155.00, "image": "hazel nut mocha.png"},
-       {"name": "Matcha Cream", "price": 135.00, "image": "matcha cream.png"},
-       {"name": "Mint Chocolate Chip", "price": 150.00, "image": "mint chocolate chips.png"},
-       {"name": "Strawberry Cream", "price": 150.00, "image": "strawberry cream.png"},
-       {"name": "Vanilla Bean", "price": 135.00, "image": "vanilla bean.jpg"}
-   ],
-   "Pastries": [
-       {"name": "Bagels", "price": 90.00, "image": "bagels.jpg"},
-       {"name": "Donut", "price": 70.00, "image": "donut.jpg"},
-       {"name": "Muffins", "price": 75.00, "image": "muffin.jpg"},
-       {"name": "Biscotto", "price": 80.00, "image": "biscotto.jpg"}
-   ],
-   "Pasta": [
-       {"name": "Spaghetti Bolognese", "price": 185.00, "image": "Spaghetti Bolognese.jpg"},
-       {"name": "Lasagna", "price": 190.00, "image": "lasagna.jpg"},
-       {"name": "Pasta Carbonara", "price": 150.00, "image": "Pasta Carbonara.jpg"},
-       {"name": "Ravioli", "price": 200.00, "image": "ravioli.jpg"},
-       {"name": "Spaghetti alle Vongole", "price": 200.00, "image": "Spaghetti alle Vongole.jpg"},
-       {"name": "Macaroni Cheese", "price": 190.00, "image": "Macaroni Cheese.jpg"}
-   ],
-}
-
-
-# Save the menu data to the database
-save_menu_to_db(menu)
+# def save_menu_to_db(menu):
+#    """Save the menu data to the MySQL database."""
+#    global connection, cursor
+#    try:
+#        connection = connect_db()
+#        cursor = connection.cursor()
+#
+#        # Execute the SELECT statement
+#        cursor.execute("SELECT DISTINCT category FROM menu")
+#        categoryRows = cursor.fetchall()
+#
+#        for categoryRow in categoryRows:
+#            print(str(categoryRow))
+#            menu[str(categoryRow)] = []
+#
+#            cursor.execute("SELECT name, price, image_path FROM menu WHERE category = %s", tuple(categoryRow))
+#            # Fetch all rows
+#            rows = cursor.fetchall()
+#
+#            # Print the results
+#            for row in rows:
+#                name, price, image_path = row
+#                if len(menu[categoryRow]) > 0:
+#                    menu[categoryRow] = [{"name" : str(name), "price": str(price), "image": str(image_path)}]
+#                else:
+#                    menu[categoryRow].append({"name" : str(name), "price": str(price), "image": str(image_path)})
+#
+#                # Menu items with prices and image paths
+#                # menu = {
+#                #     "Espresso": [
+#                #         {"name": "Americano", "price": 150.00, "image": "americano.jpeg"},
+#                #         {"name": "Cappuccino", "price": 150.00, "image": "cappucino.png"},
+#                #         {"name": "Macchiato", "price": 175.00, "image": "macchiato.png"},
+#                #         {"name": "Latte", "price": 175.00, "image": "latte.png"},
+#                #         {"name": "Double Espresso", "price": 125.00, "image": "double espresso.png"},
+#                #         {"name": "Mocha", "price": 180.00, "image": "mocha.png"},
+#                #         {"name": "White Mocha", "price": 150.00, "image": "white mocha.png"},
+#                #     ]
+#                # }
+#
+#        # Save the menu data to the database
+#        # save_menu_to_db(menu)
+#
+#        # SQL to insert data into the menu table
+#        # insert_query = """
+#        # INSERT INTO menu (name, category, price, image_path)
+#        # VALUES (%s, %s, %s, %s)
+#        # """
+#        #
+#        #
+#        # # Iterate through the menu dictionary and insert each item
+#        # for category, items in menu.items():
+#        #     for item in items:
+#        #         cursor.execute(insert_query, (item['name'], category, item['price'], item['image']))
+#        #
+#        #
+#        # # Commit the transaction
+#        # connection.commit()
+#        # print(f"Menu data successfully saved to the database. Total items: {cursor.rowcount}")
+#
+#
+#    except Error as e:
+#        print(f"Error: {e}")
+#
+#
+#    finally:
+#        # Close the database connection
+#        if connection.is_connected():
+#            cursor.close()
+#            connection.close()
+#            print("Database connection closed.")
 
 
 VAT_RATE = 0.12
@@ -425,11 +430,15 @@ class POSApp:
        tk.Button(category_frame, text="Back", width=20, bg="red", fg="white", command=self.create_home_page).pack(
            side="bottom", pady=10)
 
+       connection = connect_db()
+       cursor = connection.cursor()
+       cursor.execute("SELECT DISTINCT category FROM menu LIMIT 1")
+       cat = cursor.fetchone()
 
        # Menu Items Frame
        self.menu_frame = tk.Frame(self.root, bg="#F5F5F5")
        self.menu_frame.pack(side="left", fill="both", expand=True)
-       self.show_menu_items("Espresso")
+       self.show_menu_items(str(cat[0])) #get initial category
 
 
        # Order Summary Frame (centered)
