@@ -868,14 +868,17 @@ class POSApp:
 
 
        # Calculate sales totals
-       monthly_sales = sum(
-           sale["total"] for sale in sales if
-           datetime.datetime.strptime(sale["timestamp"], "%Y-%m-%d").month == datetime.datetime.now().month
-       )
-       yearly_sales = sum(
-           sale["total"] for sale in sales if
-           datetime.datetime.strptime(sale["timestamp"], "%Y-%m-%d").year == datetime.datetime.now().year
-       )
+       sales_conn = connect_db()
+       sales_cur = sales_conn.cursor()
+       sales_cur.execute("SELECT * FROM vwmonthlysales")
+       m_sum = sales_cur.fetchone()
+
+       monthly_sales = float(m_sum[0])
+
+       sales_cur.execute("SELECT * FROM vwyearlysales")
+       y_sum = sales_cur.fetchone()
+
+       yearly_sales = float(y_sum[0])
 
 
        # Summary Cards
@@ -929,26 +932,36 @@ class POSApp:
        tree.heading("qty", text="Quantity")
        tree.heading("amount", text="Amount")
 
+       sales_cur.execute("SELECT date_time, receipt_number, item_name, quantity, subtotal FROM vwdaily_sales_report")
+       sales_daily = sales_cur.fetchall()
 
        # Populate the table with sales data
-       for sale in sales:
-           sale_date = sale["timestamp"]
-           for item_name, details in sale["order"].items():
-               quantity = details["quantity"]
-               price = details["price"]
-               item_total = price * quantity
-               discount_amount = sale.get("discount", 0)  # Retrieve discount amount if available
-               tree.insert(
-                   "",
-                   "end",
-                   values=(
-                       sale_date,
-                       item_name,
-                       quantity,
-                       f"₱{discount_amount:.2f}",
-                       f"₱{item_total:.2f}"
-                   ),
-               )
+       # for sale in sales:
+       for date_time, receipt_number, item_name, quantity, subtotal in sales_daily:
+           tree.insert("", "end", values=(
+               date_time,
+               receipt_number,
+               item_name,
+               quantity,
+               f"₱{subtotal:,.2f}"
+           ))
+
+           # for item_name, details in sale["order"].items():
+           #     quantity = details["quantity"]
+           #     price = details["price"]
+           #     item_total = price * quantity
+           #     discount_amount = sale.get("discount", 0)  # Retrieve discount amount if available
+           #     tree.insert(
+           #         "",
+           #         "end",
+           #         values=(
+           #             sale_date,
+           #             item_name,
+           #             quantity,
+           #             f"₱{discount_amount:.2f}",
+           #             f"₱{item_total:.2f}"
+           #         ),
+           #     )
 
 
        tree.pack(fill="both", expand=True, pady=10)
