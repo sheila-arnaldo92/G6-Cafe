@@ -7,8 +7,6 @@ from tkinter import ttk, messagebox
 import mysql.connector
 from PIL import Image, ImageTk
 
-import decimal
-
 image_folder = r"Photos"
 
 # Database Configuration
@@ -45,13 +43,14 @@ for categoryRow in categoryRows:
     # Fetch all rows
     rows = cursor.fetchall()
 
+    #this is my changes
     # Print the results
     for row in rows:
         name, price, image_path = row
         if len(menu[catSTR]) == 0:
-            menu[catSTR] = [{"name": str(name), "price": decimal.Decimal(price), "image": str(image_path)}]
+            menu[catSTR] = [{"name": str(name), "price": float(price), "image": str(image_path)}]
         else:
-            menu[catSTR].append({"name": str(name), "price": decimal.Decimal(price), "image": str(image_path)})
+            menu[catSTR].append({"name": str(name), "price": float(price), "image": str(image_path)})
 
 # def save_menu_to_db(menu):
 #    """Save the menu data to the MySQL database."""
