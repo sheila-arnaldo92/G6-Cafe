@@ -6,6 +6,7 @@ from tkinter import ttk, messagebox
 
 import mysql.connector
 from PIL import Image, ImageTk
+from sympy.physics.units import amount
 
 image_folder = r"Photos"
 
@@ -27,35 +28,42 @@ def connect_db():
 
 #Load menu
 menu = {}
-connection = connect_db()
-cursor = connection.cursor()
 
-# generate the list of menu
-cursor.execute("SELECT DISTINCT category_name FROM menu_details")
-categoryRows = cursor.fetchall()
+def generate_menu():
+    connection = connect_db()
+    cursor = connection.cursor()
 
-for categoryRow in categoryRows:
-    cat = categoryRow
-    catSTR = str(categoryRow[0])
-    menu[catSTR] = []
+    # generate the list of menu
+    cursor.execute("SELECT DISTINCT category_name FROM menu_details")
+    categoryRows = cursor.fetchall()
 
-    cursor.execute("SELECT item_name, unit_price, photo FROM menu_details WHERE category_name = %s", tuple(categoryRow))
-    # Fetch all rows
-    rows = cursor.fetchall()
+    for categoryRow in categoryRows:
+        cat = categoryRow
+        catSTR = str(categoryRow[0])
+        menu[catSTR] = []
 
-    #this is my changes
-    # Print the results
-    for row in rows:
-        item_name, unit_price, photo = row
-        if len(menu[catSTR]) == 0:
-            menu[catSTR] = [{"name": str(item_name), "price": float(unit_price), "image": str(photo)}]
-        else:
-            menu[catSTR].append({"name": str(item_name), "price": float(unit_price), "image": str(photo)})
+        cursor.execute("SELECT item_id, item_name, unit_price, photo FROM menu_details WHERE category_name = %s", tuple(categoryRow))
+        # Fetch all rows
+        rows = cursor.fetchall()
+
+        #this is my changes
+        # Print the results
+        for row in rows:
+            item_id, item_name, unit_price, photo = row
+            item = {"name": str(item_name), "price": float(unit_price), "image": str(photo), "item_id": item_id}
+            if len(menu[catSTR]) == 0:
+                menu[catSTR] = [item]
+            else:
+                menu[catSTR].append(item)
+
+    close_connection(connection)
 
 VAT_RATE = 0.12
 DISCOUNT_RATE = 0.20
 sales = []  # To track sales data
 
+def close_connection(conn):
+    conn.close()
 
 class POSApp:
    def __init__(self, root):
@@ -78,6 +86,7 @@ class POSApp:
 
 
        # Initialize frames
+       generate_menu()
        self.create_home_page()
 
 
@@ -663,7 +672,7 @@ class POSApp:
 
 
        # Generate receipt number and current date/time
-       receipt_number = f"REC{int(datetime.datetime.now().timestamp())}"
+       receipt_number = f"REC{datetime.datetime.now().strftime("%Y%m%d%H%M")}"
        current_datetime = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 
@@ -719,7 +728,11 @@ class POSApp:
        ])
 
 
+
        # Add discount details if applicable
+       disc_name = ""
+       disc_id_number = ""
+       disc_type = ""
        if self.is_discount_applied and self.discount_details:
            receipt_lines.extend([
                "--------------------------------------",
@@ -728,6 +741,10 @@ class POSApp:
                f"  Name: {self.discount_details['name']}",
                f"  ID Number: {self.discount_details['id_number']}",
            ])
+
+           disc_name = self.discount_details['name']
+           disc_id_number = self.discount_details['id_number']
+           disc_type = self.discount_details['type']
 
 
        # Closing receipt lines
@@ -744,6 +761,42 @@ class POSApp:
 
        receipt_text = "\n".join(receipt_lines)
 
+       #Insert to orders table
+       conn = connect_db()
+       cur = conn.cursor()
+
+       insert_order = (f"INSERT INTO orders (subtotal, vat_amount, discount_amount, net_amount, "
+                       f"tender_amount, change_amount, receipt_number)"
+                       f" VALUES (%s, %s, %s, %s, %s, %s, %s)")
+
+       cur.execute(insert_order, (subtotal, vat, discount, total, tendered, change, receipt_number))
+       order_id = cur.lastrowid
+
+       insert_order_details = ("INSERT INTO order_details (order_id, item_id, quantity, subtotal, order_preference)"
+                               "VALUES (%s, %s, %s, %s, %s)")
+
+       for ord_item, qty in self.current_order.items():
+           price = next(i["price"] for item_cat in menu.values() for i in item_cat if i["name"] == ord_item)
+           item_id = next(i["item_id"] for item_cat in menu.values() for i in item_cat if i["name"] == ord_item)
+           item_total = price * qty
+           subtotal += item_total
+
+           # Add preferences if they exist
+           if ord_item in self.customer_preferences:
+               preferences = self.customer_preferences[ord_item]
+               cur.execute(insert_order_details, (order_id, item_id, qty, subtotal, preferences))
+           else:
+               cur.execute(insert_order_details, (order_id, item_id, qty, subtotal, ""))
+
+
+
+       if self.is_discount_applied:
+           insert_pwd = ("INSERT INTO pwdsenior_details (order_id, discount_type, customer_name, id_number, discount_amount)"
+                         "VALUES (%s, %s, %s, %s, %s)")
+           cur.execute(insert_pwd, (order_id, disc_type, disc_name, disc_id_number, discount))
+
+       conn.commit()
+       close_connection(conn)
 
        # Display receipt in a new window
        receipt_window = tk.Toplevel(self.root)
