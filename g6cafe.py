@@ -10,8 +10,8 @@ from PIL import Image, ImageTk
 image_folder = r"Photos"
 
 # Database Configuration
-DB_HOST = "127.0.0.1"
-DB_USER = "devuser"
+DB_HOST = "localhost"
+DB_USER = "admin"
 DB_PASSWORD = "MySql.Admin"
 DB_NAME = "g6cafe"
 
@@ -31,7 +31,7 @@ connection = connect_db()
 cursor = connection.cursor()
 
 # generate the list of menu
-cursor.execute("SELECT DISTINCT category FROM menu")
+cursor.execute("SELECT DISTINCT category_name FROM menu_details")
 categoryRows = cursor.fetchall()
 
 for categoryRow in categoryRows:
@@ -39,97 +39,22 @@ for categoryRow in categoryRows:
     catSTR = str(categoryRow[0])
     menu[catSTR] = []
 
-    cursor.execute("SELECT name, price, image_path FROM menu WHERE category = %s", tuple(categoryRow))
+    cursor.execute("SELECT item_name, unit_price, photo FROM menu_details WHERE category_name = %s", tuple(categoryRow))
     # Fetch all rows
     rows = cursor.fetchall()
 
     #this is my changes
     # Print the results
     for row in rows:
-        name, price, image_path = row
+        item_name, unit_price, photo = row
         if len(menu[catSTR]) == 0:
-            menu[catSTR] = [{"name": str(name), "price": float(price), "image": str(image_path)}]
+            menu[catSTR] = [{"name": str(item_name), "price": float(unit_price), "image": str(photo)}]
         else:
-            menu[catSTR].append({"name": str(name), "price": float(price), "image": str(image_path)})
-
-# def save_menu_to_db(menu):
-#    """Save the menu data to the MySQL database."""
-#    global connection, cursor
-#    try:
-#        connection = connect_db()
-#        cursor = connection.cursor()
-#
-#        # Execute the SELECT statement
-#        cursor.execute("SELECT DISTINCT category FROM menu")
-#        categoryRows = cursor.fetchall()
-#
-#        for categoryRow in categoryRows:
-#            print(str(categoryRow))
-#            menu[str(categoryRow)] = []
-#
-#            cursor.execute("SELECT name, price, image_path FROM menu WHERE category = %s", tuple(categoryRow))
-#            # Fetch all rows
-#            rows = cursor.fetchall()
-#
-#            # Print the results
-#            for row in rows:
-#                name, price, image_path = row
-#                if len(menu[categoryRow]) > 0:
-#                    menu[categoryRow] = [{"name" : str(name), "price": str(price), "image": str(image_path)}]
-#                else:
-#                    menu[categoryRow].append({"name" : str(name), "price": str(price), "image": str(image_path)})
-#
-#                # Menu items with prices and image paths
-#                # menu = {
-#                #     "Espresso": [
-#                #         {"name": "Americano", "price": 150.00, "image": "americano.jpeg"},
-#                #         {"name": "Cappuccino", "price": 150.00, "image": "cappucino.png"},
-#                #         {"name": "Macchiato", "price": 175.00, "image": "macchiato.png"},
-#                #         {"name": "Latte", "price": 175.00, "image": "latte.png"},
-#                #         {"name": "Double Espresso", "price": 125.00, "image": "double espresso.png"},
-#                #         {"name": "Mocha", "price": 180.00, "image": "mocha.png"},
-#                #         {"name": "White Mocha", "price": 150.00, "image": "white mocha.png"},
-#                #     ]
-#                # }
-#
-#        # Save the menu data to the database
-#        # save_menu_to_db(menu)
-#
-#        # SQL to insert data into the menu table
-#        # insert_query = """
-#        # INSERT INTO menu (name, category, price, image_path)
-#        # VALUES (%s, %s, %s, %s)
-#        # """
-#        #
-#        #
-#        # # Iterate through the menu dictionary and insert each item
-#        # for category, items in menu.items():
-#        #     for item in items:
-#        #         cursor.execute(insert_query, (item['name'], category, item['price'], item['image']))
-#        #
-#        #
-#        # # Commit the transaction
-#        # connection.commit()
-#        # print(f"Menu data successfully saved to the database. Total items: {cursor.rowcount}")
-#
-#
-#    except Error as e:
-#        print(f"Error: {e}")
-#
-#
-#    finally:
-#        # Close the database connection
-#        if connection.is_connected():
-#            cursor.close()
-#            connection.close()
-#            print("Database connection closed.")
-
+            menu[catSTR].append({"name": str(item_name), "price": float(unit_price), "image": str(photo)})
 
 VAT_RATE = 0.12
 DISCOUNT_RATE = 0.20
 sales = []  # To track sales data
-
-
 
 
 class POSApp:
@@ -431,7 +356,7 @@ class POSApp:
 
        connection = connect_db()
        cursor = connection.cursor()
-       cursor.execute("SELECT DISTINCT category FROM menu LIMIT 1")
+       cursor.execute("SELECT DISTINCT category_name FROM menu_details LIMIT 1")
        cat = cursor.fetchone()
 
        # Menu Items Frame
@@ -987,46 +912,3 @@ if __name__ == "__main__":
    root.geometry("1024x960")
    app = POSApp(root)
    root.mainloop()
-
-
-
-
-# MySql database
-#
-# create database g6_pos;
-# use g6_pos;
-#
-# CREATE TABLE menu (
-#     id INT AUTO_INCREMENT PRIMARY KEY,
-#     name VARCHAR(255) NOT NULL,
-#     category VARCHAR(255) NOT NULL,
-#     price DECIMAL(10, 2) NOT NULL,
-#     image_path VARCHAR(255) NOT NULL
-# );
-#
-#
-#
-#
-# CREATE TABLE order_items (
-#     order_item_id INT AUTO_INCREMENT PRIMARY KEY,
-#     order_id INT,
-#     item_name VARCHAR(255),
-#     quantity INT,
-#     price DECIMAL(10, 2),
-#     preferences TEXT,
-#     FOREIGN KEY (order_id) REFERENCES orders(order_id) ON DELETE CASCADE
-# );
-# -- Insert order details
-# -- Insert order details
-# INSERT INTO orders (customer_name, subtotal, vat, discount, total)
-# VALUES ('John Doe', 300.00, 36.00, 0.00, 336.00);
-#
-# -- Get the order ID of the newly inserted order (assuming it's the latest one)
-# SET @order_id = LAST_INSERT_ID();
-#
-# -- Insert order items
-# INSERT INTO order_items (order_id, item_name, quantity, price, preferences)
-# VALUES
-# (@order_id, 'Americano', 2, 150.00, 'Extra shot of espresso'),
-# (@order_id, 'Cappuccino', 1, 175.00, 'No sugar');
-#
