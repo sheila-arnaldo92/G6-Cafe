@@ -775,18 +775,19 @@ class POSApp:
        insert_order_details = ("INSERT INTO order_details (order_id, item_id, quantity, subtotal, order_preference)"
                                "VALUES (%s, %s, %s, %s, %s)")
 
+       item_subtotal = 0
        for ord_item, qty in self.current_order.items():
            price = next(i["price"] for item_cat in menu.values() for i in item_cat if i["name"] == ord_item)
            item_id = next(i["item_id"] for item_cat in menu.values() for i in item_cat if i["name"] == ord_item)
            item_total = price * qty
-           subtotal += item_total
+           item_subtotal += item_total
 
            # Add preferences if they exist
            if ord_item in self.customer_preferences:
                preferences = self.customer_preferences[ord_item]
-               cur.execute(insert_order_details, (order_id, item_id, qty, subtotal, preferences))
+               cur.execute(insert_order_details, (order_id, item_id, qty, item_subtotal, preferences))
            else:
-               cur.execute(insert_order_details, (order_id, item_id, qty, subtotal, ""))
+               cur.execute(insert_order_details, (order_id, item_id, qty, item_subtotal, ""))
 
 
 
