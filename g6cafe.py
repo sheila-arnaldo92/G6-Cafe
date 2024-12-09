@@ -6,7 +6,6 @@ from tkinter import ttk, messagebox
 
 import mysql.connector
 from PIL import Image, ImageTk
-from sympy.physics.units import amount
 
 image_folder = r"Photos"
 
