@@ -671,7 +671,7 @@ class POSApp:
 
 
        # Generate receipt number and current date/time
-       receipt_number = f"REC{datetime.datetime.now().strftime("%Y%m%d%H%M")}"
+       receipt_number = f"REC{datetime.datetime.now().strftime("%Y%m%d%H%M%S")}"
        current_datetime = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 
